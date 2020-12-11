@@ -55,10 +55,18 @@ func (m RegistryClientMethods) ProveProfileKey(p *RegistryProfile, ok *bool) err
 	if err != nil {
 		return err
 	}
-
 	log.Debugf("prove profile response: %v", pro)
-	*p = *pro
 
+	// If the profileID was changed, assign it to our client. This happens when the registry
+	// recognizes the user in some implementation defined manner, and wants to tell them to
+	// use an already existing profileID.
+	// TODO(dustmop): This should also send a UCAN token proving that the user owns the
+	// old profileID, so that they can inform other peers about this fact.
+	if p.ProfileID != pro.ProfileID {
+		return m.updateProfileID(p, pro.ProfileID)
+	}
+
+	*p = *pro
 	return m.updateConfig(pro)
 }
 
@@ -95,6 +103,22 @@ func (m RegistryClientMethods) updateConfig(pro *registry.Profile) error {
 		if err := base.ModifyRepoUsername(ctx, m.inst.Repo(), m.inst.logbook, m.inst.cfg.Profile.Peername, cfg.Profile.Peername); err != nil {
 			return err
 		}
+	}
+
+	if err := m.inst.Repo().Profiles().SetOwner(repoPro); err != nil {
+		return err
+	}
+
+	return m.inst.ChangeConfig(cfg)
+}
+
+func (m RegistryClientMethods) updateProfileID(pro *registry.Profile, profileID string) error {
+	cfg := m.configChanges(pro)
+	cfg.Profile.ID = profileID
+
+	repoPro, err := profile.NewProfile(cfg.Profile)
+	if err != nil {
+		return err
 	}
 
 	if err := m.inst.Repo().Profiles().SetOwner(repoPro); err != nil {
