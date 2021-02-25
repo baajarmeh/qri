@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/qri-io/dataset"
 	"github.com/qri-io/qri/api/util"
@@ -18,6 +19,7 @@ import (
 // FSIHandlers connects HTTP requests to the FSI subsystem
 type FSIHandlers struct {
 	lib.FSIMethods
+	inst     *lib.Instance
 	dsm      *lib.DatasetMethods
 	ReadOnly bool
 }
@@ -26,6 +28,7 @@ type FSIHandlers struct {
 func NewFSIHandlers(inst *lib.Instance, readOnly bool) FSIHandlers {
 	return FSIHandlers{
 		FSIMethods: *lib.NewFSIMethods(inst),
+		inst:       inst,
 		dsm:        lib.NewDatasetMethods(inst),
 		ReadOnly:   readOnly,
 	}
@@ -94,21 +97,9 @@ func (h *FSIHandlers) WhatChangedHandler(routePrefix string) http.HandlerFunc {
 
 func (h *FSIHandlers) whatChangedHandler(routePrefix string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ref, err := lib.DsRefFromPath(r.URL.Path[len(routePrefix):])
-		if err != nil {
-			util.WriteErrResponse(w, http.StatusBadRequest, fmt.Errorf("bad reference: %s", err.Error()))
-			return
-		}
-
-		res := []lib.StatusItem{}
-		refStr := ref.String()
-		err = h.WhatChanged(&refStr, &res)
-		if err != nil {
-			if err == repo.ErrNoHistory {
-				util.WriteErrResponse(w, http.StatusUnprocessableEntity, err)
-				return
-			}
-			util.WriteErrResponse(w, http.StatusInternalServerError, fmt.Errorf("error getting status: %s", err.Error()))
+		res, err := APIDispatch(h.inst, "fsi", r)
+		if err != nil{
+			util.WriteErrResponse(w, http.StatusUnprocessableEntity, err)
 			return
 		}
 		util.WriteResponse(w, res)
@@ -143,11 +134,13 @@ func (h *FSIHandlers) initHandler(routePrefix string) http.HandlerFunc {
 			BodyPath:  r.FormValue("bodypath"),
 		}
 
-		var name string
-		if err := h.InitDataset(r.Context(), p, &name); err != nil {
-			util.WriteErrResponse(w, http.StatusBadRequest, err)
-			return
-		}
+		name := ""
+		_ = p
+		//var name string
+		//if err := h.InitDataset(r.Context(), p, &name); err != nil {
+		//	util.WriteErrResponse(w, http.StatusBadRequest, err)
+		//	return
+		//}
 
 		// Get code taken
 		// taken from ./root.go
@@ -184,6 +177,54 @@ func (h *FSIHandlers) initHandler(routePrefix string) http.HandlerFunc {
 		return
 	}
 }
+
+//////////////////////////////////////////////////////////////////////
+
+func APIDispatch(inst *lib.Instance, holder string, r *http.Request) (interface{}, error) {
+	urlPath := r.URL.Path
+	parts := strings.Split(urlPath, "/")
+
+	fmt.Printf("API dispatch, parts:\n")
+	for i, p := range parts {
+		fmt.Printf("%d: %s\n", i, p)
+	}
+
+	name := parts[1]
+	method := fmt.Sprintf("%s.%s", holder, name)
+
+	// Construct object needed for param
+	var param interface{}
+	if method == "fsi.whatchanged" {
+		// TODO(dustmop): Get the struct from lib.reg, and use reflect to construct from the
+		// request form values
+		refstr := ""
+		for i, p := range parts {
+			if i < 2 {
+				continue
+			}
+			if p == "at" {
+				refstr += "@"
+				continue
+			}
+			if refstr != "" {
+				refstr += "/"
+			}
+			refstr += p
+		}
+		fmt.Printf("calling with %q\n", refstr)
+		st := lib.WhatChangedParams{
+			Refstr: refstr,
+		}
+		param = &st
+	} else {
+		return nil, fmt.Errorf("unknown method %q", method)
+	}
+
+	// Call the lib function
+	return inst.Dispatch(r.Context(), method, param)
+}
+
+//////////////////////////////////////////////////////////////////////
 
 // WriteHandler writes input data to the local filesystem link
 func (h *FSIHandlers) WriteHandler(routePrefix string) http.HandlerFunc {

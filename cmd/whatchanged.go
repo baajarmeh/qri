@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/qri-io/ioes"
@@ -36,15 +37,15 @@ type WhatChangedOptions struct {
 	ioes.IOStreams
 
 	Refs       *RefSelect
-	FSIMethods *lib.FSIMethods
+
+	Instance *lib.Instance
 }
 
 // Complete adds any missing configuration that can only be added just before calling Run
 func (o *WhatChangedOptions) Complete(f Factory, args []string) (err error) {
-	if o.FSIMethods, err = f.FSIMethods(); err != nil {
-		return err
-	}
-	o.Refs, err = GetCurrentRefSelect(f, args, 1, EnsureFSIAgrees(o.FSIMethods))
+	fsiMethods, _ := f.FSIMethods()
+	o.Instance = f.Instance()
+	o.Refs, err = GetCurrentRefSelect(f, args, 1, EnsureFSIAgrees(fsiMethods))
 	return nil
 }
 
@@ -52,9 +53,15 @@ func (o *WhatChangedOptions) Complete(f Factory, args []string) (err error) {
 func (o *WhatChangedOptions) Run() (err error) {
 	printRefSelect(o.ErrOut, o.Refs)
 
-	res := []lib.StatusItem{}
 	ref := o.Refs.Ref()
-	if err := o.FSIMethods.WhatChanged(&ref, &res); err != nil {
+
+	ctx := context.Background()
+	inst := o.Instance
+
+	params := lib.WhatChangedParams{Refstr: ref}
+
+	res, err := inst.Filesys().WhatChanged(ctx, &params)
+	if err != nil {
 		printErr(o.ErrOut, err)
 		return nil
 	}

@@ -69,7 +69,8 @@ type InitOptions struct {
 	UseDscache bool
 
 	DatasetMethods *lib.DatasetMethods
-	FSIMethods     *lib.FSIMethods
+
+	Instance *lib.Instance
 }
 
 // Complete completes a dataset reference
@@ -77,7 +78,7 @@ func (o *InitOptions) Complete(f Factory, args []string) (err error) {
 	if o.DatasetMethods, err = f.DatasetMethods(); err != nil {
 		return err
 	}
-	o.FSIMethods, err = f.FSIMethods()
+	o.Instance = f.Instance()
 	if len(args) > 0 {
 		o.TargetDir = args[0]
 	}
@@ -87,13 +88,14 @@ func (o *InitOptions) Complete(f Factory, args []string) (err error) {
 // Run executes the `init` command
 func (o *InitOptions) Run() (err error) {
 	// First, check if the directory can be init'd, before prompting for any input
-	canInitParams := lib.InitDatasetParams{
-		TargetDir: o.TargetDir,
-		BodyPath:  o.BodyPath,
-	}
-	if err = o.FSIMethods.CanInitDatasetWorkDir(&canInitParams, nil); err != nil {
-		return err
-	}
+	// TODO(dustmop): Restore this.
+	//canInitParams := lib.InitDatasetParams{
+	//	TargetDir: o.TargetDir,
+	//	BodyPath:  o.BodyPath,
+	//}
+	//if err = o.FSIMethods.CanInitDatasetWorkDir(&canInitParams, nil); err != nil {
+	//	return err
+	//}
 
 	// Suggestion for the dataset name defaults to directory it is being linked into
 	if o.Name == "" {
@@ -126,10 +128,15 @@ func (o *InitOptions) Run() (err error) {
 		BodyPath:   o.BodyPath,
 		UseDscache: o.UseDscache,
 	}
+	if p.TargetDir == "" {
+		p.TargetDir = "."
+	}
 
-	ctx := context.TODO()
-	var refstr string
-	if err = o.FSIMethods.InitDataset(ctx, p, &refstr); err != nil {
+	ctx := context.Background()
+	inst := o.Instance
+
+	refstr, err := inst.Filesys().Init(ctx, p)
+	if err != nil {
 		return err
 	}
 

@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 
 	"github.com/qri-io/dataset"
-	"github.com/qri-io/qfs"
 	"github.com/qri-io/qri/base"
 	"github.com/qri-io/qri/base/component"
 	"github.com/qri-io/qri/base/dsfs"
@@ -18,7 +17,76 @@ import (
 	reporef "github.com/qri-io/qri/repo/ref"
 )
 
-// FSIMethods encapsulates filesystem integrations methods
+// New thing
+type FSIMethodz struct {
+	inst *Instance
+}
+
+func (m *FSIMethodz) Name() string {
+	return "fsi"
+}
+
+func (inst *Instance) Filesys() *FSIMethodz {
+	return &FSIMethodz{inst: inst}
+}
+
+func (m *FSIMethodz) Init(ctx context.Context, p *InitDatasetParams) (string, error) {
+	got, err := m.inst.Dispatch(ctx, m.Name() + ".init", p)
+	if res, ok := got.(string); ok {
+		return res, err
+	}
+	return "", err
+}
+
+type WhatChangedParams struct {
+	Refstr string `qri:"dsref"`
+}
+
+func (m *FSIMethodz) WhatChanged(ctx context.Context, p *WhatChangedParams) ([]StatusItem, error) {
+	got, err := m.inst.Dispatch(ctx, m.Name() + ".whatchanged", p)
+	if res, ok := got.([]StatusItem); ok {
+		return res, err
+	}
+	return nil, err
+}
+
+// Implementation
+
+type FSIImpl struct {
+}
+
+// InitDatasetParams proxies parameters to initialization
+type InitDatasetParams = fsi.InitParams
+
+// InitDataset creates a new dataset in a working directory
+func (*FSIImpl) Init(scope Scope, p *InitDatasetParams) (string, error) {
+	ctx := scope.Context()
+
+	if p.UseDscache {
+		scope.Dscache().CreateNewEnabled = true
+	}
+	ref, err := scope.FSISubsystem().InitDataset(ctx, *p)
+	refstr := ref.Human()
+	return refstr, err
+}
+
+// WhatChanged gets changes that happened at a particular version in the history of the given
+// dataset reference.
+func (*FSIImpl) WhatChanged(scope Scope, p *WhatChangedParams) ([]StatusItem, error) {
+	ctx := scope.Context()
+
+	fmt.Printf("WhatChanged: %s\n", p.Refstr)
+	ref, _, err := scope.ParseAndResolveRef(ctx, p.Refstr, "local")
+	if err != nil {
+		return nil, err
+	}
+
+	return scope.FSISubsystem().StatusAtVersion(ctx, ref)
+}
+
+//////////////////////////////////////////////////////////////
+
+// _old thing_, FSIMethods encapsulates filesystem integrations methods
 type FSIMethods struct {
 	inst *Instance
 }
@@ -133,23 +201,6 @@ func (m *FSIMethods) StatusForAlias(alias *string, res *[]StatusItem) (err error
 	}
 
 	*res, err = m.inst.fsi.Status(ctx, vi.FSIPath)
-	return err
-}
-
-// WhatChanged gets changes that happened at a particular version in the history of the given
-// dataset reference. Not used for FSI.
-func (m *FSIMethods) WhatChanged(refstr *string, res *[]StatusItem) (err error) {
-	if m.inst.rpc != nil {
-		return checkRPCError(m.inst.rpc.Call("FSIMethods.WhatChanged", refstr, res))
-	}
-	ctx := context.TODO()
-
-	ref, _, err := m.inst.ParseAndResolveRef(ctx, *refstr, "local")
-	if err != nil {
-		return err
-	}
-
-	*res, err = m.inst.fsi.StatusAtVersion(ctx, ref)
 	return err
 }
 
@@ -338,36 +389,6 @@ func (m *FSIMethods) Restore(p *RestoreParams, out *string) (err error) {
 		}
 	}
 	return nil
-}
-
-// InitDatasetParams proxies parameters to initialization
-type InitDatasetParams = fsi.InitParams
-
-// InitDataset creates a new dataset in a working directory
-func (m *FSIMethods) InitDataset(ctx context.Context, p *InitDatasetParams, refstr *string) (err error) {
-	if err = qfs.AbsPath(&p.BodyPath); err != nil {
-		return err
-	}
-
-	if p.TargetDir == "" {
-		p.TargetDir = "."
-	}
-	if err = qfs.AbsPath(&p.TargetDir); err != nil {
-		return err
-	}
-
-	if m.inst.rpc != nil {
-		return checkRPCError(m.inst.rpc.Call("FSIMethods.InitDataset", p, refstr))
-	}
-
-	// If the dscache doesn't exist yet, it will only be created if the appropriate flag enables it.
-	if p.UseDscache {
-		m.inst.Dscache().CreateNewEnabled = true
-	}
-
-	ref, err := m.inst.fsi.InitDataset(ctx, *p)
-	*refstr = ref.Human()
-	return err
 }
 
 // CanInitDatasetWorkDir returns nil if the directory can init a dataset, or an error if not
