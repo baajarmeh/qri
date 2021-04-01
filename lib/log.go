@@ -27,7 +27,7 @@ func (m LogMethods) Name() string {
 // Attributes defines attributes for each method
 func (m LogMethods) Attributes() map[string]AttributeSet {
 	return map[string]AttributeSet{
-		"history":        {AEHistory, "POST"},
+		"history":        {AELog, "POST"},
 		"entries":        {AEEntries, "POST"},
 		"rawlogbook":     {denyRPC, ""},
 		"logbooksummary": {denyRPC, ""},

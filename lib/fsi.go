@@ -30,16 +30,18 @@ func (m FSIMethods) Name() string {
 // Attributes defines attributes for each method
 func (m FSIMethods) Attributes() map[string]AttributeSet {
 	return map[string]AttributeSet{
+		"status":                {AEStatus, "POST"},
+		"caninitdatasetworkdir": {AECanInitDatasetWorkDir, "POST"},
+		"init":                  {AEInit, "POST"},
+		"checkout":              {AECheckout, "POST"},
+		"restore":               {AERestore, "POST"},
+		"write":                 {AEFSIWrite, "POST"},
 		"createlink":            {AEFSICreateLink, "POST"},
 		"unlink":                {AEFSIUnlink, "POST"},
-		"status":                {AEStatus, "GET"},
-		"whatchanged":           {AEWhatChanged, "GET"},
-		"checkout":              {AECheckout, "POST"},
-		"write":                 {AEFSIWrite, "POST"},
-		"restore":               {AERestore, "POST"},
-		"init":                  {AEInit, "POST"},
-		"caninitdatasetworkdir": {AECanInitDatasetWorkDir, "GET"},
-		"ensureref":             {AEEnsureRef, "POST"},
+
+		// TODO(arqu): reorganize these handlers into appropriate packages
+		"whatchanged": {AEWhatChanged, "POST"}, // dataset.componentstatus
+		"ensureref":   {AEEnsureRef, "POST"},   // ??
 	}
 }
 

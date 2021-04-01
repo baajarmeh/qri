@@ -215,18 +215,64 @@ func NewServerRoutes(s Server) *mux.Router {
 	m.Use(refStringMiddleware)
 	m.Use(token.OAuthTokenMiddleware)
 
+	dsh := NewDatasetHandlers(s.Instance, cfg.API.ReadOnly)
+	proh := NewProfileHandlers(s.Instance, cfg.API.ReadOnly)
+	sqlh := NewSQLHandlers(s.Instance, cfg.API.ReadOnly)
+	tfh := NewTransformHandlers(s.Instance)
+	rch := NewRegistryClientHandlers(s.Instance, cfg.API.ReadOnly)
+	sh := NewSearchHandlers(s.Instance)
+	renderh := NewRenderHandlers(s.Instance)
+	remClientH := NewRemoteClientHandlers(s.Instance, cfg.API.ReadOnly)
+
 	var routeParams refRouteParams
 
+	// misc endpoints
 	m.Handle(lib.AEHome.String(), s.NoLogMiddleware(s.HomeHandler))
 	m.Handle(lib.AEHealth.String(), s.NoLogMiddleware(HealthCheckHandler))
 	m.Handle(lib.AEIPFS.String(), s.Middleware(s.HandleIPFSPath))
+	if !cfg.API.DisableWebui {
+		m.Handle(lib.AEWebUI.String(), s.Middleware(WebuiHandler))
+	}
 
-	proh := NewProfileHandlers(s.Instance, cfg.API.ReadOnly)
-	m.Handle(lib.AEMe.String(), s.Middleware(proh.ProfileHandler))
-	m.Handle(lib.AEProfile.String(), s.Middleware(proh.ProfileHandler))
-	m.Handle(lib.AEProfilePhoto.String(), s.Middleware(proh.ProfilePhotoHandler))
-	m.Handle(lib.AEProfilePoster.String(), s.Middleware(proh.PosterHandler))
+	// aggregate endpoints
+	m.Handle(lib.AEList.String(), s.Middleware(lib.NewHTTPRequestHandler(s.Instance, "dataset.list"))).Methods(http.MethodPost, http.MethodGet)
+	m.Handle(lib.AEListRaw.String(), s.Middleware(lib.NewHTTPRequestHandler(s.Instance, "dataset.listrawrefs"))).Methods(http.MethodPost, http.MethodGet)
+	m.Handle(lib.AEPeerList.String(), s.Middleware(dsh.PeerListHandler(lib.AEPeerList.String())))
+	m.Handle(lib.AESQL.String(), s.Middleware(sqlh.QueryHandler))
+	m.Handle(lib.AEDiff.String(), s.Middleware(lib.NewHTTPRequestHandler(s.Instance, "dataset.diff"))).Methods(http.MethodPost, http.MethodGet)
+	m.Handle(lib.AEChanges.String(), s.Middleware(lib.NewHTTPRequestHandler(s.Instance, "dataset.changereport"))).Methods(http.MethodPost, http.MethodGet)
 
+	// access endpoints
+
+	// automation endpoints
+	m.Handle(lib.AEApply.String(), s.Middleware(tfh.ApplyHandler(lib.AEApply.NoTrailingSlash())))
+
+	// dataset endpoints
+	routeParams = newrefRouteParams(lib.AEWhatChanged, false, false, http.MethodGet, http.MethodPost)
+	handleRefRoute(m, routeParams, s.Middleware(lib.NewHTTPRequestHandler(s.Instance, "fsi.whatchanged")))
+	routeParams = newrefRouteParams(lib.AEGet, false, true, http.MethodGet, http.MethodPost)
+	handleRefRoute(m, routeParams, s.Middleware(dsh.GetHandler(lib.AEGet.String())))
+	m.Handle(lib.AERename.String(), s.Middleware(lib.NewHTTPRequestHandler(s.Instance, "dataset.rename"))).Methods(http.MethodPost, http.MethodPut)
+	routeParams = newrefRouteParams(lib.AESave, false, false, http.MethodPost, http.MethodPut)
+	handleRefRoute(m, routeParams, s.Middleware(dsh.SaveHandler(lib.AESave.String())))
+	routeParams = newrefRouteParams(lib.AEPull, false, false, http.MethodPost, http.MethodPut)
+	handleRefRoute(m, routeParams, s.Middleware(dsh.PullHandler(lib.AEPull.NoTrailingSlash())))
+	routeParams = newrefRouteParams(lib.AEPush, false, false, http.MethodGet, http.MethodPost, http.MethodDelete)
+	handleRefRoute(m, routeParams, s.Middleware(remClientH.PushHandler))
+	routeParams = newrefRouteParams(lib.AERender, false, false, http.MethodGet, http.MethodPost)
+	handleRefRoute(m, routeParams, s.Middleware(renderh.RenderHandler))
+	routeParams = newrefRouteParams(lib.AERemove, false, false, http.MethodPost, http.MethodDelete)
+	handleRefRoute(m, routeParams, s.Middleware(dsh.RemoveHandler(lib.AERemove.String())))
+	routeParams = newrefRouteParams(lib.AEValidate, false, false, http.MethodGet, http.MethodPost)
+	handleRefRoute(m, routeParams, s.Middleware(lib.NewHTTPRequestHandler(s.Instance, "dataset.validate")))
+	m.Handle(lib.AEUnpack.String(), s.Middleware(dsh.UnpackHandler(lib.AEUnpack.NoTrailingSlash())))
+	routeParams = newrefRouteParams(lib.AEManifest, false, false, http.MethodPost)
+	handleRefRoute(m, routeParams, s.Middleware(lib.NewHTTPRequestHandler(s.Instance, "dataset.manifest")))
+	m.Handle(lib.AEManifestMissing.String(), s.Middleware(lib.NewHTTPRequestHandler(s.Instance, "dataset.manifestmissing"))).Methods(http.MethodPost)
+	routeParams = newrefRouteParams(lib.AEDAGInfo, false, false, http.MethodPost)
+	handleRefRoute(m, routeParams, s.Middleware(lib.NewHTTPRequestHandler(s.Instance, "dataset.daginfo")))
+
+	// peer endpoints
 	m.Handle(lib.AEPeers.String(), s.Middleware(lib.NewHTTPRequestHandler(s.Instance, "peer.list"))).Methods(http.MethodPost)
 	m.Handle(lib.AEPeer.String(), s.Middleware(lib.NewHTTPRequestHandler(s.Instance, "peer.info"))).Methods(http.MethodPost)
 	m.Handle(lib.AEConnect.String(), s.Middleware(lib.NewHTTPRequestHandler(s.Instance, "peer.connect"))).Methods(http.MethodPost)
@@ -234,6 +280,33 @@ func NewServerRoutes(s Server) *mux.Router {
 	m.Handle(lib.AEConnections.String(), s.Middleware(lib.NewHTTPRequestHandler(s.Instance, "peer.connections"))).Methods(http.MethodPost)
 	m.Handle(lib.AEConnectedQriProfiles.String(), s.Middleware(lib.NewHTTPRequestHandler(s.Instance, "peer.connectedqriprofiles"))).Methods(http.MethodPost)
 
+	// profile endpoints
+	m.Handle(lib.AEMe.String(), s.Middleware(proh.ProfileHandler))
+	m.Handle(lib.AEProfile.String(), s.Middleware(proh.ProfileHandler))
+	m.Handle(lib.AEProfilePhoto.String(), s.Middleware(proh.ProfilePhotoHandler))
+	m.Handle(lib.AEProfilePoster.String(), s.Middleware(proh.PosterHandler))
+
+	// remote endpoints
+	m.Handle(lib.AEFeeds.String(), s.Middleware(remClientH.FeedsHandler))
+	routeParams = newrefRouteParams(lib.AEPreview, false, false, http.MethodGet, http.MethodPost)
+	handleRefRoute(m, routeParams, s.Middleware(remClientH.DatasetPreviewHandler))
+	m.Handle(lib.AERegistryNew.String(), s.Middleware(rch.CreateProfileHandler))
+	m.Handle(lib.AERegistryProve.String(), s.Middleware(rch.ProveProfileKeyHandler))
+	m.Handle(lib.AESearch.String(), s.Middleware(sh.SearchHandler))
+
+	// working directory endpoints
+	routeParams = newrefRouteParams(lib.AEStatus, false, false, http.MethodGet, http.MethodPost)
+	handleRefRoute(m, routeParams, s.Middleware(lib.NewHTTPRequestHandler(s.Instance, "fsi.status")))
+	m.Handle(lib.AECanInitDatasetWorkDir.String(), s.Middleware(lib.NewHTTPRequestHandler(s.Instance, "fsi.caninitdatasetworkdir")))
+	routeParams = newrefRouteParams(lib.AEInit, true, false, http.MethodPost)
+	handleRefRoute(m, routeParams, s.Middleware(lib.NewHTTPRequestHandler(s.Instance, "fsi.init")))
+	m.Handle(lib.AECheckout.String(), s.Middleware(lib.NewHTTPRequestHandler(s.Instance, "fsi.checkout"))).Methods(http.MethodPost)
+	m.Handle(lib.AERestore.String(), s.Middleware(lib.NewHTTPRequestHandler(s.Instance, "fsi.restore"))).Methods(http.MethodPost)
+	m.Handle(lib.AEFSIWrite.String(), s.Middleware(lib.NewHTTPRequestHandler(s.Instance, "fsi.write"))).Methods(http.MethodPost)
+	m.Handle(lib.AEFSICreateLink.String(), s.Middleware(lib.NewHTTPRequestHandler(s.Instance, "fsi.createlink"))).Methods(http.MethodPost)
+	m.Handle(lib.AEFSIUnlink.String(), s.Middleware(lib.NewHTTPRequestHandler(s.Instance, "fsi.unlink"))).Methods(http.MethodPost)
+
+	// sync/protocol endpoints
 	if cfg.Remote != nil && cfg.Remote.Enabled {
 		log.Info("running in `remote` mode")
 
@@ -243,75 +316,12 @@ func NewServerRoutes(s Server) *mux.Router {
 		m.Handle(lib.AERemoteRefs.String(), s.Middleware(remh.RefsHandler))
 	}
 
-	dsh := NewDatasetHandlers(s.Instance, cfg.API.ReadOnly)
-	m.Handle(lib.AEList.String(), s.Middleware(lib.NewHTTPRequestHandler(s.Instance, "dataset.list"))).Methods(http.MethodPost, http.MethodGet)
-	m.Handle(lib.AEListRaw.String(), s.Middleware(lib.NewHTTPRequestHandler(s.Instance, "dataset.listrawrefs"))).Methods(http.MethodPost, http.MethodGet)
-	m.Handle(lib.AEPeerList.String(), s.Middleware(dsh.PeerListHandler(lib.AEPeerList.String())))
-	routeParams = newrefRouteParams(lib.AESave, false, false, http.MethodPost, http.MethodPut)
-	handleRefRoute(m, routeParams, s.Middleware(dsh.SaveHandler(lib.AESave.String())))
-	routeParams = newrefRouteParams(lib.AEGet, false, true, http.MethodGet, http.MethodPost)
-	handleRefRoute(m, routeParams, s.Middleware(dsh.GetHandler(lib.AEGet.String())))
-	routeParams = newrefRouteParams(lib.AERemove, false, false, http.MethodPost, http.MethodDelete)
-	handleRefRoute(m, routeParams, s.Middleware(dsh.RemoveHandler(lib.AERemove.String())))
-	m.Handle(lib.AERename.String(), s.Middleware(lib.NewHTTPRequestHandler(s.Instance, "dataset.rename"))).Methods(http.MethodPost, http.MethodPut)
-	routeParams = newrefRouteParams(lib.AEValidate, false, false, http.MethodGet, http.MethodPost)
-	handleRefRoute(m, routeParams, s.Middleware(lib.NewHTTPRequestHandler(s.Instance, "dataset.validate")))
-	m.Handle(lib.AEDiff.String(), s.Middleware(lib.NewHTTPRequestHandler(s.Instance, "dataset.diff"))).Methods(http.MethodPost, http.MethodGet)
-	m.Handle(lib.AEChanges.String(), s.Middleware(lib.NewHTTPRequestHandler(s.Instance, "dataset.changereport"))).Methods(http.MethodPost, http.MethodGet)
-	m.Handle(lib.AEUnpack.String(), s.Middleware(dsh.UnpackHandler(lib.AEUnpack.NoTrailingSlash())))
-	routeParams = newrefRouteParams(lib.AEManifest, false, false, http.MethodPost)
-	handleRefRoute(m, routeParams, s.Middleware(lib.NewHTTPRequestHandler(s.Instance, "dataset.manifest")))
-	m.Handle(lib.AEManifestMissing.String(), s.Middleware(lib.NewHTTPRequestHandler(s.Instance, "dataset.manifestmissing"))).Methods(http.MethodPost)
-	routeParams = newrefRouteParams(lib.AEDAGInfo, false, false, http.MethodPost)
-	handleRefRoute(m, routeParams, s.Middleware(lib.NewHTTPRequestHandler(s.Instance, "dataset.daginfo")))
+	// TODO(aqru): clear up these endpoints up to spec
 
-	remClientH := NewRemoteClientHandlers(s.Instance, cfg.API.ReadOnly)
-	routeParams = newrefRouteParams(lib.AEPush, false, false, http.MethodGet, http.MethodPost, http.MethodDelete)
-	handleRefRoute(m, routeParams, s.Middleware(remClientH.PushHandler))
-	routeParams = newrefRouteParams(lib.AEPull, false, false, http.MethodPost, http.MethodPut)
-	handleRefRoute(m, routeParams, s.Middleware(dsh.PullHandler(lib.AEPull.NoTrailingSlash())))
-	m.Handle(lib.AEFeeds.String(), s.Middleware(remClientH.FeedsHandler))
-	routeParams = newrefRouteParams(lib.AEPreview, false, false, http.MethodGet, http.MethodPost)
-	handleRefRoute(m, routeParams, s.Middleware(remClientH.DatasetPreviewHandler))
-
-	routeParams = newrefRouteParams(lib.AEStatus, false, false, http.MethodGet, http.MethodPost)
-	handleRefRoute(m, routeParams, s.Middleware(lib.NewHTTPRequestHandler(s.Instance, "fsi.status")))
-	routeParams = newrefRouteParams(lib.AEWhatChanged, false, false, http.MethodGet, http.MethodPost)
-	handleRefRoute(m, routeParams, s.Middleware(lib.NewHTTPRequestHandler(s.Instance, "fsi.whatchanged")))
-	routeParams = newrefRouteParams(lib.AEInit, true, false, http.MethodPost)
-	handleRefRoute(m, routeParams, s.Middleware(lib.NewHTTPRequestHandler(s.Instance, "fsi.init")))
-	m.Handle(lib.AECanInitDatasetWorkDir.String(), s.Middleware(lib.NewHTTPRequestHandler(s.Instance, "fsi.caninitdatasetworkdir")))
-	m.Handle(lib.AECheckout.String(), s.Middleware(lib.NewHTTPRequestHandler(s.Instance, "fsi.checkout"))).Methods(http.MethodPost)
-	m.Handle(lib.AERestore.String(), s.Middleware(lib.NewHTTPRequestHandler(s.Instance, "fsi.restore"))).Methods(http.MethodPost)
-	m.Handle(lib.AEFSIWrite.String(), s.Middleware(lib.NewHTTPRequestHandler(s.Instance, "fsi.write"))).Methods(http.MethodPost)
-	m.Handle(lib.AEFSICreateLink.String(), s.Middleware(lib.NewHTTPRequestHandler(s.Instance, "fsi.createlink"))).Methods(http.MethodPost)
-	m.Handle(lib.AEFSIUnlink.String(), s.Middleware(lib.NewHTTPRequestHandler(s.Instance, "fsi.unlink"))).Methods(http.MethodPost)
-
-	renderh := NewRenderHandlers(s.Instance)
-	routeParams = newrefRouteParams(lib.AERender, false, false, http.MethodGet, http.MethodPost)
-	handleRefRoute(m, routeParams, s.Middleware(renderh.RenderHandler))
-
-	m.Handle(lib.AEHistory.String(), s.Middleware(lib.NewHTTPRequestHandler(s.Instance, "log.history"))).Methods(http.MethodPost)
+	m.Handle(lib.AELog.String(), s.Middleware(lib.NewHTTPRequestHandler(s.Instance, "log.history"))).Methods(http.MethodPost)
 	m.Handle(lib.AEEntries.String(), s.Middleware(lib.NewHTTPRequestHandler(s.Instance, "log.entries"))).Methods(http.MethodPost)
 	m.Handle(lib.AERawLogbook.String(), s.Middleware(lib.NewHTTPRequestHandler(s.Instance, "log.rawlogbook"))).Methods(http.MethodPost)
 	m.Handle(lib.AELogbookSummary.String(), s.Middleware(lib.NewHTTPRequestHandler(s.Instance, "log.logbooksummary"))).Methods(http.MethodPost)
-
-	rch := NewRegistryClientHandlers(s.Instance, cfg.API.ReadOnly)
-	m.Handle(lib.AERegistryNew.String(), s.Middleware(rch.CreateProfileHandler))
-	m.Handle(lib.AERegistryProve.String(), s.Middleware(rch.ProveProfileKeyHandler))
-
-	sh := NewSearchHandlers(s.Instance)
-	m.Handle(lib.AESearch.String(), s.Middleware(sh.SearchHandler))
-
-	sqlh := NewSQLHandlers(s.Instance, cfg.API.ReadOnly)
-	m.Handle(lib.AESQL.String(), s.Middleware(sqlh.QueryHandler))
-
-	tfh := NewTransformHandlers(s.Instance)
-	m.Handle(lib.AEApply.String(), s.Middleware(tfh.ApplyHandler(lib.AEApply.NoTrailingSlash())))
-
-	if !cfg.API.DisableWebui {
-		m.Handle(lib.AEWebUI.String(), s.Middleware(WebuiHandler))
-	}
 
 	return m
 }

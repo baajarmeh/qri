@@ -36,44 +36,11 @@ const (
 	// AEHealth is the service health check endpoint
 	AEHealth = APIEndpoint("/health")
 	// AEIPFS is the IPFS endpoint
-	AEIPFS = APIEndpoint("/ipfs/{path:.*}")
+	AEIPFS = APIEndpoint("/qfs/ipfs/{path:.*}")
+	// AEWebUI serves the remote WebUI
+	AEWebUI = APIEndpoint("/webui")
 
-	// profile enpoints
-
-	// AEMe is the "own" profile endpoint
-	AEMe = APIEndpoint("/me")
-	// AEProfile is an alias for the me endpoint
-	AEProfile = APIEndpoint("/profile")
-	// AEProfilePhoto is an endpoint to serve the profile photo
-	AEProfilePhoto = APIEndpoint("/profile/photo")
-	// AEProfilePoster is an endpoint to serve the profile poster
-	AEProfilePoster = APIEndpoint("/profile/poster")
-
-	// peer endpoints
-
-	// AEPeers fetches all the peers
-	AEPeers = APIEndpoint("/peers")
-	// AEPeer fetches a specific peer
-	AEPeer = APIEndpoint("/peer")
-	// AEConnect initiates an explicit connection to a peer
-	AEConnect = APIEndpoint("/connect")
-	// AEDisconnect closes an explicit connection to a peer
-	AEDisconnect = APIEndpoint("/disconnect")
-	// AEConnections lists qri & IPFS connections
-	AEConnections = APIEndpoint("/connections")
-	// AEConnectedQriProfiles lists qri profile connections
-	AEConnectedQriProfiles = APIEndpoint("/connections/qri")
-
-	// remote endpoints
-
-	// AERemoteDSync exposes the dsync mechanics
-	AERemoteDSync = APIEndpoint("/remote/dsync")
-	// AERemoteLogSync exposes the logsync mechanics
-	AERemoteLogSync = APIEndpoint("/remote/logsync")
-	// AERemoteRefs exposes the remote ref resolution mechanics
-	AERemoteRefs = APIEndpoint("/remote/refs")
-
-	// dataset endpoints
+	// aggregate endpoints
 
 	// AEListRaw lists all datasets in your collection as a well formatted string
 	AEListRaw = APIEndpoint("/listraw")
@@ -82,93 +49,135 @@ const (
 	// AEPeerList lists all datasets in your
 	// collection for a particular peer
 	AEPeerList = APIEndpoint("/list/{peer}")
-	// AESave is an endpoint for saving a dataset
-	AESave = APIEndpoint("/save")
-	// AERemove exposes the dataset remove mechanics
-	AERemove = APIEndpoint("/remove")
-	// AEGet is an endpoint for fetch individual dataset components
-	AEGet = APIEndpoint("/get")
-	// AERename is an endpoint for renaming datasets
-	AERename = APIEndpoint("/rename")
-	// AEValidate is an endpoint for validating datasets
-	AEValidate = APIEndpoint("/validate")
 	// AEDiff is an endpoint for generating dataset diffs
 	AEDiff = APIEndpoint("/diff")
 	// AEChanges is an endpoint for generating dataset change reports
 	AEChanges = APIEndpoint("/changes")
-	// AEUnpack unpacks a zip file and sends it back
-	AEUnpack = APIEndpoint("/unpack/{path:.*}")
-	// AEManifest generates a manifest for a dataset path
-	AEManifest = APIEndpoint("/manifest")
-	// AEManifestMissing generates a manifest of blocks that are not present on this repo for a given manifest
-	AEManifestMissing = APIEndpoint("/manifest/missing")
-	// AEDAGInfo generates a dag.Info for a dataset path
-	AEDAGInfo = APIEndpoint("/dag/info")
-
-	// remote client endpoints
-
-	// AEPush facilitates dataset push requests to a remote
-	AEPush = APIEndpoint("/push")
-	// AEPull facilittates dataset pull requests from a remote
-	AEPull = APIEndpoint("/pull")
-	// AEFeeds fetches and index of named feeds
-	AEFeeds = APIEndpoint("/feeds")
-	// AEPreview fetches a dataset preview from the registry
-	AEPreview = APIEndpoint("/preview")
-
-	// fsi endpoints
-
-	// AEStatus returns the filesystem dataset status
-	AEStatus = APIEndpoint("/status")
-	// AEWhatChanged returns what changed for a specific commit
-	AEWhatChanged = APIEndpoint("/whatchanged")
-	// AEInit invokes a dataset initialization on the filesystem
-	AEInit = APIEndpoint("/init")
-	// AECanInitDatasetWorkDir returns whether a dataset can be initialized
-	AECanInitDatasetWorkDir = APIEndpoint("/caninitdatasetworkdir")
-	// AECheckout invokes a dataset checkout to the filesystem
-	AECheckout = APIEndpoint("/checkout")
-	// AERestore invokes a restore
-	AERestore = APIEndpoint("/restore")
-	// AEFSIWrite writes input data to the filesystem
-	AEFSIWrite = APIEndpoint("/fsi/write")
-	// AEFSICreateLink creates an fsi link
-	AEFSICreateLink = APIEndpoint("/fsi/createlink")
-	// AEFSIUnlink removes the fsi link
-	AEFSIUnlink = APIEndpoint("/fsi/unlink")
-	// AEEnsureRef ensures that the ref is fsi linked
-	AEEnsureRef = APIEndpoint("/fsi/ensureref")
+	// AESQL executes SQL commands
+	AESQL = APIEndpoint("/sql")
 
 	// auth endpoints
 
 	// AECreateAuthToken creates an auth token for a user
-	AECreateAuthToken = APIEndpoint("/auth/createauthtoken")
+	AECreateAuthToken = APIEndpoint("/access/token")
+
+	// automation endpoints
+
+	// AEApply invokes a transform apply
+	AEApply = APIEndpoint("/auto/apply")
+
+	// dataset endpoints
+
+	// AEWhatChanged returns what changed for a specific commit
+	AEWhatChanged = APIEndpoint("/ds/componentstatus")
+	// AEGet is an endpoint for fetch individual dataset components
+	AEGet = APIEndpoint("/ds/get")
+	// AELog is an endpoint that returns dataset logs
+	AELog = APIEndpoint("/ds/log") // TODO(arqu): /history > /ds/log
+	// AERename is an endpoint for renaming datasets
+	AERename = APIEndpoint("/ds/rename")
+	// AESave is an endpoint for saving a dataset
+	AESave = APIEndpoint("/ds/save")
+	// AEPull facilittates dataset pull requests from a remote
+	AEPull = APIEndpoint("/ds/pull")
+	// AEPush facilitates dataset push requests to a remote
+	AEPush = APIEndpoint("/ds/push")
+	// AERender renders the current dataset ref
+	AERender = APIEndpoint("/ds/render")
+	// AERemove exposes the dataset remove mechanics
+	AERemove = APIEndpoint("/ds/remove")
+	// AEValidate is an endpoint for validating datasets
+	AEValidate = APIEndpoint("/ds/validate")
+	// AEUnpack unpacks a zip file and sends it back
+	AEUnpack = APIEndpoint("/ds/unpack/{path:.*}")
+	// AEManifest generates a manifest for a dataset path
+	AEManifest = APIEndpoint("/ds/manifest")
+	// AEManifestMissing generates a manifest of blocks that are not present on this repo for a given manifest
+	AEManifestMissing = APIEndpoint("/ds/manifest/missing")
+	// AEDAGInfo generates a dag.Info for a dataset path
+	AEDAGInfo = APIEndpoint("/ds/daginfo")
+
+	// peer endpoints
+
+	// AEPeer fetches a specific peer
+	AEPeer = APIEndpoint("/peer")
+	// AERemovePeer removes a peer from the store
+	AERemovePeer = APIEndpoint("/peer/remove")
+	// AEConnect initiates an explicit connection to a peer
+	AEConnect = APIEndpoint("/peer/connect")
+	// AEDisconnect closes an explicit connection to a peer
+	AEDisconnect = APIEndpoint("/peer/disconnect")
+	// AEPeers fetches all the peers
+	AEPeers = APIEndpoint("/peer/list")
+
+	// profile enpoints
+
+	// AEMe is the "own" profile endpoint
+	AEMe = APIEndpoint("/profile/me")
+	// AEProfile is an alias for the me endpoint
+	AEProfile = APIEndpoint("/profile/list")
+	// AEProfilePhoto is an endpoint to serve the profile photo
+	AEProfilePhoto = APIEndpoint("/profile/me/photo")
+	// AEProfilePoster is an endpoint to serve the profile poster
+	AEProfilePoster = APIEndpoint("/profile/me/poster")
+
+	// remote client endpoints
+
+	// AEFeeds fetches and index of named feeds
+	AEFeeds = APIEndpoint("/remote/feeds")
+	// AEPreview fetches a dataset preview from the registry
+	AEPreview = APIEndpoint("/remote/preview")
+	// AERegistryNew creates a new user on the registry
+	AERegistryNew = APIEndpoint("/remote/registry/profile/new")
+	// AERegistryProve links an the current peer with an existing
+	// user on the registry
+	AERegistryProve = APIEndpoint("/remote/registry/profile/prove")
+	// AESearch returns a list of dataset search results
+	AESearch = APIEndpoint("/remote/search")
+
+	// fsi endpoints
+
+	// AEStatus returns the filesystem dataset status
+	AEStatus = APIEndpoint("/wd/status")
+	// AEInit invokes a dataset initialization on the filesystem
+	AEInit = APIEndpoint("/wd/init")
+	// AECanInitDatasetWorkDir returns whether a dataset can be initialized
+	AECanInitDatasetWorkDir = APIEndpoint("/wd/caninitworkdir")
+	// AECheckout invokes a dataset checkout to the filesystem
+	AECheckout = APIEndpoint("/wd/checkout")
+	// AERestore invokes a restore
+	AERestore = APIEndpoint("/wd/restore")
+	// AEFSIWrite writes input data to the filesystem
+	AEFSIWrite = APIEndpoint("/wd/write")
+	// AEFSICreateLink creates an fsi link
+	AEFSICreateLink = APIEndpoint("/wd/createlink")
+	// AEFSIUnlink removes the fsi link
+	AEFSIUnlink = APIEndpoint("/wd/unlink")
+	// AEEnsureRef ensures that the ref is fsi linked
+	AEEnsureRef = APIEndpoint("/wd/ensureref") // TODO(arqu): ??
+
+	// sync endpoints
+
+	// AERemoteDSync exposes the dsync mechanics
+	AERemoteDSync = APIEndpoint("/remote/dsync")
+	// AERemoteLogSync exposes the logsync mechanics
+	AERemoteLogSync = APIEndpoint("/remote/logsync")
+	// AERemoteRefs exposes the remote ref resolution mechanics
+	AERemoteRefs = APIEndpoint("/remote/refs")
 
 	// other endpoints
 
-	// AEHistory returns dataset logs
-	AEHistory = APIEndpoint("/history")
 	// AEEntries lists log entries for actions taken on a given dataset
 	AEEntries = APIEndpoint("/log")
 	// AERawLogbook returns the full logbook encoded as human-oriented json
 	AERawLogbook = APIEndpoint("/logbook")
 	// AELogbookSummary returns a string overview of the logbook
 	AELogbookSummary = APIEndpoint("/logbook/summary")
-	// AERender renders the current dataset ref
-	AERender = APIEndpoint("/render")
-	// AERegistryNew creates a new user on the registry
-	AERegistryNew = APIEndpoint("/registry/profile/new")
-	// AERegistryProve links an the current peer with an existing
-	// user on the registry
-	AERegistryProve = APIEndpoint("/registry/profile/prove")
-	// AESearch returns a list of dataset search results
-	AESearch = APIEndpoint("/search")
-	// AESQL executes SQL commands
-	AESQL = APIEndpoint("/sql")
-	// AEApply invokes a transform apply
-	AEApply = APIEndpoint("/apply")
-	// AEWebUI serves the remote WebUI
-	AEWebUI = APIEndpoint("/webui")
+
+	// AEConnections lists qri & IPFS connections
+	AEConnections = APIEndpoint("/connections")
+	// AEConnectedQriProfiles lists qri profile connections
+	AEConnectedQriProfiles = APIEndpoint("/connections/qri")
 
 	// denyRPC if used will disable RPC calls for a method
 	denyRPC = APIEndpoint("")

@@ -53,22 +53,29 @@ func (m DatasetMethods) Name() string {
 // Attributes defines attributes for each method
 func (m DatasetMethods) Attributes() map[string]AttributeSet {
 	return map[string]AttributeSet{
-		"changereport": {AEChanges, "POST"},
-		"daginfo":      {AEDAGInfo, "GET"},
-		"diff":         {AEDiff, "GET"},
-		"get":          {AEGet, "GET"},
-		"list":         {AEList, "GET"},
+		// "componentstatus": {AE?, "POST"},
+		"get": {AEGet, "GET"},
+		// "log": {AE?, "POST"},
+		"rename": {AERename, "POST"},
+		"save":   {AESave, "POST"},
+		"pull":   {AEPull, "POST"},
+		// "push":            {AE??, "POST"},
+		// "render":            {AE??, "POST"},
+		"remove":   {AERemove, "POST"},
+		"validate": {AEValidate, "POST"},
+		// "unpack": {AE??, "POST"},
+		"manifest":        {AEManifest, "POST"},
+		"manifestmissing": {AEManifestMissing, "POST"},
+		"daginfo":         {AEDAGInfo, "POST"},
+
+		// TODO(arqu): reorganize these handlers into appropriate packages
 		// TODO(dustmop): Needs its own endpoint
-		"listrawrefs":     {AEList, "GET"},
-		"manifest":        {AEManifest, "GET"},
-		"manifestmissing": {AEManifestMissing, "GET"},
-		"pull":            {AEPull, "POST"},
-		"remove":          {AERemove, "POST"},
-		"rename":          {AERename, "POST"},
-		"save":            {AESave, "POST"},
+		"stats":        {AEGet, "GET"},      // should be hidden in just GET/component
+		"changereport": {AEChanges, "POST"}, // diff.changes
+		"diff":         {AEDiff, "POST"},    // diff.diff
+		"list":         {AEList, "POST"},    // collection.list?
 		// TODO(dustmop): Needs its own endpoint
-		"stats":    {AEGet, "GET"},
-		"validate": {AEValidate, "GET"},
+		"listrawrefs": {AEList, "POST"}, // should be absorbed in collection.list?
 	}
 }
 

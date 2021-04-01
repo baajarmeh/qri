@@ -199,7 +199,7 @@ func TestNoHistory(t *testing.T) {
 
 	// History with no history
 	p := lib.HistoryParams{Ref: "peer/test_ds"}
-	gotStatusCode, gotBodyString = JSONAPICallWithBody("POST", lib.AEHistory.String(), p, historyHandler, nil)
+	gotStatusCode, gotBodyString = JSONAPICallWithBody("POST", lib.AELog.String(), p, historyHandler, nil)
 	if gotStatusCode != 422 {
 		t.Errorf("expected status code 422, got %d", gotStatusCode)
 	}
@@ -209,7 +209,7 @@ func TestNoHistory(t *testing.T) {
 
 	p.EnsureFSIExists = true
 	// History with no history, still returns ErrNoHistory since this route ignores fsi param
-	gotStatusCode, gotBodyString = JSONAPICallWithBody("POST", lib.AEHistory.String(), p, historyHandler, nil)
+	gotStatusCode, gotBodyString = JSONAPICallWithBody("POST", lib.AELog.String(), p, historyHandler, nil)
 	if gotStatusCode != 422 {
 		t.Errorf("expected status code 422, got %d", gotStatusCode)
 	}

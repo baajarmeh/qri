@@ -211,7 +211,7 @@ func (o *LogbookOptions) Complete(f Factory, args []string) (err error) {
 	return err
 }
 
-// Logbook executes the Logbook command
+// LogEntries executes the Logbook command
 func (o *LogbookOptions) LogEntries() error {
 	printRefSelect(o.ErrOut, o.Refs)
 
