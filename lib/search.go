@@ -26,9 +26,9 @@ func (m SearchMethods) CoreRequestsName() string { return "search" }
 
 // SearchParams defines paremeters for the search Method
 type SearchParams struct {
-	QueryString string `json:"q"`
-	Limit       int    `json:"limit,omitempty"`
-	Offset      int    `json:"offset,omitempty"`
+	Query  string `json:"q"`
+	Limit  int    `json:"limit,omitempty"`
+	Offset int    `json:"offset,omitempty"`
 }
 
 // UnmarshalFromRequest implements a custom deserialization-from-HTTP request

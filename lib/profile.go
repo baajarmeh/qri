@@ -190,9 +190,11 @@ func (m *ProfileMethods) ProfilePhoto(ctx context.Context, req *config.ProfilePo
 
 // FileParams defines parameters for Files as arguments to lib methods
 type FileParams struct {
-	// Url      string    // url to download data from. either Url or Data is required
-	Filename string    // filename of data file. extension is used for filetype detection
-	Data     io.Reader // reader of structured data. either Url or Data is required
+	// filename of data file. extension is used for filetype detection
+	// TODO(dustmop): Not used?
+	Filename string `qri:"fspath"`
+	// reader of structured data. either Filename or Data is required
+	Data io.Reader
 }
 
 // SetProfilePhoto changes this peer's profile image

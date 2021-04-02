@@ -38,9 +38,8 @@ func (m LogMethods) Attributes() map[string]AttributeSet {
 type HistoryParams struct {
 	ListParams
 	// Reference to data to fetch history for
-	Ref    string
-	Pull   bool
-	Source string
+	Ref  string
+	Pull bool
 }
 
 // UnmarshalFromRequest implements a custom deserialization-from-HTTP request

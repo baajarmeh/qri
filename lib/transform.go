@@ -32,12 +32,10 @@ func (m TransformMethods) Attributes() map[string]AttributeSet {
 
 // ApplyParams are parameters for the apply command
 type ApplyParams struct {
-	Refstr    string
+	Ref       string
 	Transform *dataset.Transform
 	Secrets   map[string]string
 	Wait      bool
-
-	Source string
 	// TODO(arqu): substitute with websockets when working over the wire
 	ScriptOutput io.Writer `json:"-"`
 }

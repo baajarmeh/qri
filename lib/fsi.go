@@ -45,27 +45,30 @@ func (m FSIMethods) Attributes() map[string]AttributeSet {
 
 // LinkParams encapsulate parameters for linked datasets
 type LinkParams struct {
-	Dir    string `qri:"fspath"`
-	Refstr string
+	Dir string `qri:"fspath"`
+	Ref string
 }
 
 // UnmarshalFromRequest implements a custom deserialization-from-HTTP request
 func (p *LinkParams) UnmarshalFromRequest(r *http.Request) error {
-	p.Refstr = r.FormValue("refstr")
+	p.Ref = r.FormValue("refstr")
 	p.Dir = r.FormValue("dir")
 	return nil
 }
 
 // FSIWriteParams encapsultes arguments for writing to an FSI-linked directory
 type FSIWriteParams struct {
-	Refstr string
-	Ds     *dataset.Dataset
+	Ref     string
+	Dataset *dataset.Dataset
 }
 
 // RestoreParams provides parameters to the restore method.
 type RestoreParams struct {
 	Dir       string `qri:"fspath"`
-	Refstr    string
+	Ref       string
+	// The path of the version to restore. Same as the `Path` field on dsref.Ref.
+	// Perhaps change to `Version`? After all, it would never make sense to use
+	// a local filesystem path here.
 	Path      string
 	Component string
 }

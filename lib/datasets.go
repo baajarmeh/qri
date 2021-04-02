@@ -95,8 +95,9 @@ func (m DatasetMethods) ListRawRefs(ctx context.Context, p *ListParams) (string,
 
 // GetParams defines parameters for looking up the head or body of a dataset
 type GetParams struct {
-	Refstr string `json:"ref"`
+	Ref string `json:"ref"`
 
+	// selector is a component or nested field names to extract from the dataset
 	Selector string `json:"selector"`
 
 	// read from a filesystem link instead of stored version
@@ -111,7 +112,6 @@ type GetParams struct {
 	Outfile string `json:"outfile" qri:"fspath"`
 	// whether to generate a filename from the dataset name instead
 	GenFilename bool   `json:"genfilename"`
-	Remote      string `json:"remote"`
 }
 
 // SetNonZeroDefaults assigns default values
@@ -205,10 +205,6 @@ func (p *GetParams) UnmarshalFromRequest(r *http.Request) error {
 
 	if params.Format != "" && params.Format != "json" && params.Format != "csv" && params.Format != "zip" {
 		return fmt.Errorf("invalid extension format")
-	}
-
-	if params.Remote == "" {
-		params.Remote = r.FormValue("remote")
 	}
 
 	// TODO(arqu): we default to true but should implement a guard and/or respect the page params
@@ -321,6 +317,7 @@ type SaveParams struct {
 	// see https://github.com/qri-io/qri/issues/291 for updates
 	Private bool
 	// if true, convert body to the format of the previous version, if applicable
+	// TODO(dustmop): Is this still needed?
 	ConvertFormatToPrev bool
 	// comma separated list of component names to delete before saving
 	Drop string
@@ -331,6 +328,7 @@ type SaveParams struct {
 	// new dataset only, don't create a commit on an existing dataset, name will be unused
 	NewName bool
 	// whether to create a new dscache if none exists
+	// TODO(dustmop): Perhaps move this UseDscache (and all others) to scope?
 	UseDscache bool
 }
 
@@ -449,7 +447,6 @@ type RemoveParams struct {
 	Revision  *dsref.Rev
 	KeepFiles bool
 	Force     bool
-	Remote    string
 }
 
 // RemoveResponse gives the results of a remove
@@ -509,7 +506,6 @@ func (m DatasetMethods) Remove(ctx context.Context, p *RemoveParams) (*RemoveRes
 type PullParams struct {
 	Ref      string
 	LinkDir  string `qri:"fspath"`
-	Remote   string // remote to attempt to pull from
 	LogsOnly bool   // only fetch logbook data
 }
 
@@ -535,9 +531,9 @@ func (m DatasetMethods) Pull(ctx context.Context, p *PullParams) (*dataset.Datas
 // ValidateParams defines parameters for dataset data validation
 type ValidateParams struct {
 	Ref               string
-	BodyFilename      string
-	SchemaFilename    string
-	StructureFilename string
+	BodyFilename      string `qri:"fspath"`
+	SchemaFilename    string `qri:"fspath"`
+	StructureFilename string `qri:"fspath"`
 }
 
 // UnmarshalFromRequest implements a custom deserialization-from-HTTP request
@@ -596,7 +592,8 @@ func (m DatasetMethods) ManifestMissing(ctx context.Context, p *ManifestMissingP
 
 // DAGInfoParams defines parameters for the DAGInfo method
 type DAGInfoParams struct {
-	RefStr, Label string
+	Ref string
+	Label string
 }
 
 // DAGInfo generates a dag.Info for a dataset path. If a label is given, DAGInfo will generate a sub-dag.Info at that label.
@@ -818,7 +815,7 @@ func (datasetImpl) List(scope scope, p *ListParams) ([]dsref.VersionInfo, error)
 			infos[i] = reporef.ConvertToVersionInfo(&r)
 		}
 	} else if listProfile.Peername == "" || reqProfile.Peername == listProfile.Peername {
-		infos, err = base.ListDatasets(scope.Context(), scope.Repo(), p.Term, restrictPid, p.Offset, p.Limit, p.RPC, p.Public, p.ShowNumVersions)
+		infos, err = base.ListDatasets(scope.Context(), scope.Repo(), p.Term, restrictPid, p.Offset, p.Limit, p.Public, p.ShowNumVersions)
 		if errors.Is(err, ErrListWarning) {
 			listWarning = err
 			err = nil
@@ -877,11 +874,12 @@ func (datasetImpl) Get(scope scope, p *GetParams) (*GetResult, error) {
 	res := &GetResult{}
 
 	var ds *dataset.Dataset
-	ref, source, err := scope.ParseAndResolveRefWithWorkingDir(scope.Context(), p.Refstr, p.Remote)
+	ref, _, err := scope.ParseAndResolveRefWithWorkingDir(scope.Context(), p.Refstr, "")
 	if err != nil {
 		return nil, err
 	}
-	ds, err = scope.LoadDataset(scope.Context(), ref, source)
+	// TODO(dustmop): source
+	ds, err = scope.Loader().LoadResolved(scope.Context(), ref)
 	if err != nil {
 		return nil, err
 	}
@@ -1183,12 +1181,6 @@ func (datasetImpl) Save(scope scope, p *SaveParams) (*dataset.Dataset, error) {
 		// runState
 		runID := run.NewID()
 		runState = run.NewState(runID)
-		// create a loader so transforms can call `load_dataset`
-		// TODO(b5) - add a ResolverMode save parameter and call m.d.resolverForMode
-		// on the passed in mode string instead of just using the default resolver
-		// cmd can then define "remote" and "offline" flags, that set the ResolverMode
-		// string and control how transform functions
-		loader := scope.ParseResolveFunc()
 
 		scope.Bus().SubscribeID(func(ctx context.Context, e event.Event) error {
 			runState.AddTransformEvent(e)
@@ -1205,7 +1197,7 @@ func (datasetImpl) Save(scope scope, p *SaveParams) (*dataset.Dataset, error) {
 
 		// apply the transform
 		shouldWait := true
-		transformer := transform.NewTransformer(scope.AppContext(), loader, scope.Bus())
+		transformer := transform.NewTransformer(scope.AppContext(), scope.Loader(), scope.Bus())
 		if err := transformer.Apply(scope.Context(), ds, runID, shouldWait, scriptOut, secrets); err != nil {
 			log.Errorw("transform run error", "err", err.Error())
 			runState.Message = err.Error()
@@ -1713,12 +1705,9 @@ func (datasetImpl) Stats(scope scope, p *StatsParams) (*dataset.Stats, error) {
 
 	ds := p.Dataset
 	if ds == nil {
-		// TODO (b5) - stats is currently local-only, supply a source parameter
-		ref, source, err := scope.ParseAndResolveRefWithWorkingDir(scope.Context(), p.Refstr, "local")
+		var err error
+		ds, err = scope.Loader().LoadDataset(scope.Context(), p.Refstr)
 		if err != nil {
-			return nil, err
-		}
-		if ds, err = scope.LoadDataset(scope.Context(), ref, source); err != nil {
 			return nil, err
 		}
 	}

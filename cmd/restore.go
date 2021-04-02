@@ -62,6 +62,9 @@ type RestoreOptions struct {
 	Instance *lib.Instance
 
 	Refs          *RefSelect
+	// The path of the version to restore. Same as the `Path` field on dsref.Ref.
+	// Perhaps change to `Version`? After all, it would never make sense to use
+	// a local filesystem path here.
 	Path          string
 	ComponentName string
 }

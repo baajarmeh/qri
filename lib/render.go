@@ -38,11 +38,10 @@ type RenderParams struct {
 	// Optional template override
 	Template []byte
 	// If true,
-	UseFSI bool
+	// TODO(dustmop): Pretty sure this can be removed?
+	//UseFSI bool
 	// Output format. defaults to "html"
 	Format string
-	// remote resolver to use
-	Remote string
 	// Old style viz component rendering
 	Viz bool
 }

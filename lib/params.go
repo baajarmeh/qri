@@ -30,13 +30,10 @@ type RequestUnmarshaller interface {
 type ListParams struct {
 	ProfileID profile.ID `json:"-"`
 	Term      string
-	Peername  string
+	Username  string
 	OrderBy   string
 	Limit     int
 	Offset    int
-	// RPC is a horrible hack while we work to replace the net/rpc package
-	// TODO - remove this
-	RPC bool
 	// Public only applies to listing datasets, shows only datasets that are
 	// set to visible
 	Public bool

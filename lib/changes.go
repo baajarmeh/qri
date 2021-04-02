@@ -9,8 +9,8 @@ import (
 
 // ChangeReportParams defines parameters for diffing two sources
 type ChangeReportParams struct {
-	LeftRefstr  string `schema:"leftRef" json:"leftRef"`
-	RightRefstr string `schema:"rightRef" json:"rightRef"`
+	LeftRef  string `schema:"leftRef" json:"leftRef"`
+	RightRef string `schema:"rightRef" json:"rightRef"`
 }
 
 // ChangeReport is a simple utility type declaration

@@ -30,14 +30,9 @@ func NewRemoteMethods(inst *Instance) *RemoteMethods {
 // CoreRequestsName implements the Requests interface
 func (*RemoteMethods) CoreRequestsName() string { return "remote" }
 
-// FeedsParams provides arguments to the feeds method
-type FeedsParams struct {
-	Remote string
-}
-
 // Feeds returns a listing of datasets from a number of feeds like featured and
 // popular. Each feed is keyed by string in the response
-func (r *RemoteMethods) Feeds(ctx context.Context, p *FeedsParams) (map[string][]dsref.VersionInfo, error) {
+func (r *RemoteMethods) Feeds(ctx context.Context, p *EmptyParams) (map[string][]dsref.VersionInfo, error) {
 	if r.inst.http != nil {
 		res := map[string][]dsref.VersionInfo{}
 		err := r.inst.http.Call(ctx, AEFeeds, p, &res)
@@ -47,7 +42,11 @@ func (r *RemoteMethods) Feeds(ctx context.Context, p *FeedsParams) (map[string][
 		return res, nil
 	}
 
-	addr, err := remote.Address(r.inst.GetConfig(), p.Remote)
+	location := ""
+	// TODO(dustmop): Once scope is in use
+	//location = scope.SourceName()
+
+	addr, err := remote.Address(r.inst.GetConfig(), source)
 	if err != nil {
 		return nil, err
 	}
@@ -61,8 +60,7 @@ func (r *RemoteMethods) Feeds(ctx context.Context, p *FeedsParams) (map[string][
 
 // PreviewParams provides arguments to the preview method
 type PreviewParams struct {
-	Remote string
-	Ref    string
+	Ref string
 }
 
 // UnmarshalFromRequest implements a custom deserialization-from-HTTP request
@@ -114,8 +112,7 @@ func (r *RemoteMethods) Preview(ctx context.Context, p *PreviewParams) (*dataset
 
 // PushParams encapsulates parmeters for dataset publication
 type PushParams struct {
-	Ref    string `schema:"refstr" json:"refstr"`
-	Remote string
+	Ref string `schema:"ref" json:"refstr"`
 	// All indicates all versions of a dataset and the dataset namespace should
 	// be either published or removed
 	All bool
