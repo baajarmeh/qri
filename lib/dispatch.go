@@ -238,7 +238,7 @@ func (inst *Instance) RegisterMethods() {
 	inst.registerOne("log", inst.Log(), logImpl{}, reg)
 	inst.registerOne("peer", inst.Peer(), peerImpl{}, reg)
 	inst.registerOne("sql", inst.SQL(), sqlImpl{}, reg)
-	inst.registerOne("transform", inst.Transform(), transformImpl{}, reg)
+	inst.registerOne("automation", inst.Automation(), automationImpl{}, reg)
 	inst.regMethods = &regMethodSet{reg: reg}
 }
 

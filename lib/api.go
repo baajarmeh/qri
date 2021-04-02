@@ -166,7 +166,7 @@ const (
 	// AESQL executes SQL commands
 	AESQL = APIEndpoint("/sql")
 	// AEApply invokes a transform apply
-	AEApply = APIEndpoint("/apply")
+	AEApply = APIEndpoint("/auto/apply")
 	// AEWebUI serves the remote WebUI
 	AEWebUI = APIEndpoint("/webui")
 
